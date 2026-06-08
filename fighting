@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Street Fighting Game</title>
+
+<style>
+body{
+    margin:0;
+    background:#222;
+    overflow:hidden;
+    font-family:Arial, sans-serif;
+}
+
+#game{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    background:linear-gradient(#87ceeb,#d9b38c);
+    overflow:hidden;
+}
+
+#ground{
+    position:absolute;
+    bottom:0;
+    width:100%;
+    height:120px;
+    background:#444;
+}
+
+.fighter{
+    position:absolute;
+    width:70px;
+    height:120px;
+    bottom:120px;
+    border-radius:10px;
+}
+
+#p1{
+    background:#3498db;
+    left:200px;
+}
+
+#p2{
+    background:#e74c3c;
+    left:900px;
+}
+
+.health-container{
+    position:absolute;
+    top:20px;
+    width:300px;
+    height:30px;
+    background:#555;
+    border:3px solid white;
+}
+
+#health1Container{
+    left:20px;
+}
+
+#health2Container{
+    right:20px;
+}
+
+.health{
+    width:100%;
+    height:100%;
+    background:lime;
+}
+
+#winner{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:60px;
+    color:white;
+    text-shadow:3px 3px 10px black;
+    display:none;
+}
+
+#controls{
+    position:absolute;
+    bottom:10px;
+    left:50%;
+    transform:translateX(-50%);
+    color:white;
+    font-size:18px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+    <div id="health1Container" class="health-container">
+        <div id="health1" class="health"></div>
+    </div>
+
+    <div id="health2Container" class="health-container">
+        <div id="health2" class="health"></div>
+    </div>
+
+    <div id="p1" class="fighter"></div>
+    <div id="p2" class="fighter"></div>
+
+    <div id="ground"></div>
+
+    <div id="winner"></div>
+
+    <div id="controls">
+        Player 1: WASD Move | F Attack &nbsp;&nbsp;&nbsp;
+        Player 2: Arrow Keys Move | L Attack
+        &nbsp;&nbsp;&nbsp; Press R to Restart
+    </div>
+
+</div>
+
+<script>
+
+const p1=document.getElementById("p1");
+const p2=document.getElementById("p2");
+
+const health1Bar=document.getElementById("health1");
+const health2Bar=document.getElementById("health2");
+
+const winner=document.getElementById("winner");
+
+let keys={};
+
+let p1Data={
+    x:200,
+    y:0,
+    vx:0,
+    vy:0,
+    health:100
+};
+
+let p2Data={
+    x:900,
+    y:0,
+    vx:0,
+    vy:0,
+    health:100
+};
+
+const gravity=0.8;
+const moveSpeed=6;
+const jumpPower=15;
+
+let gameOver=false;
+
+document.addEventListener("keydown",(e)=>{
+    keys[e.key.toLowerCase()]=true;
+
+    if(e.key.toLowerCase()==="f"){
+        attackP1();
+    }
+
+    if(e.key.toLowerCase()==="l"){
+        attackP2();
+    }
+
+    if(e.key.toLowerCase()==="r"){
+        restartGame();
+    }
+});
+
+document.addEventListener("keyup",(e)=>{
+    keys[e.key.toLowerCase()]=false;
+});
+
+function attackP1(){
+
+    if(gameOver) return;
+
+    const distance=Math.abs(p1Data.x-p2Data.x);
+
+    if(distance<100){
+        p2Data.health-=10;
+        p2Data.x+=40;
+        updateHealth();
+    }
+}
+
+function attackP2(){
+
+    if(gameOver) return;
+
+    const distance=Math.abs(p1Data.x-p2Data.x);
+
+    if(distance<100){
+        p1Data.health-=10;
+        p1Data.x-=40;
+        updateHealth();
+    }
+}
+
+function updateHealth(){
+
+    health1Bar.style.width=Math.max(0,p1Data.health)+"%";
+    health2Bar.style.width=Math.max(0,p2Data.health)+"%";
+
+    if(p1Data.health<=0){
+        gameOver=true;
+        winner.innerHTML="PLAYER 2 WINS!";
+        winner.style.display="block";
+    }
+
+    if(p2Data.health<=0){
+        gameOver=true;
+        winner.innerHTML="PLAYER 1 WINS!";
+        winner.style.display="block";
+    }
+}
+
+function restartGame(){
+
+    p1Data={
+        x:200,
+        y:0,
+        vx:0,
+        vy:0,
+        health:100
+    };
+
+    p2Data={
+        x:900,
+        y:0,
+        vx:0,
+        vy:0,
+        health:100
+    };
+
+    gameOver=false;
+
+    winner.style.display="none";
+
+    updateHealth();
+}
+
+function update(){
+
+    if(!gameOver){
+
+        // P1
+        if(keys["a"]) p1Data.x-=moveSpeed;
+        if(keys["d"]) p1Data.x+=moveSpeed;
+
+        if(keys["w"] && p1Data.y===0){
+            p1Data.vy=jumpPower;
+        }
+
+        // P2
+        if(keys["arrowleft"]) p2Data.x-=moveSpeed;
+        if(keys["arrowright"]) p2Data.x+=moveSpeed;
+
+        if(keys["arrowup"] && p2Data.y===0){
+            p2Data.vy=jumpPower;
+        }
+
+        // Gravity
+        p1Data.vy-=gravity;
+        p1Data.y+=p1Data.vy;
+
+        if(p1Data.y<0){
+            p1Data.y=0;
+            p1Data.vy=0;
+        }
+
+        p2Data.vy-=gravity;
+        p2Data.y+=p2Data.vy;
+
+        if(p2Data.y<0){
+            p2Data.y=0;
+            p2Data.vy=0;
+        }
+
+        p1Data.x=Math.max(0,Math.min(window.innerWidth-70,p1Data.x));
+        p2Data.x=Math.max(0,Math.min(window.innerWidth-70,p2Data.x));
+    }
+
+    p1.style.left=p1Data.x+"px";
+    p1.style.bottom=(120+p1Data.y)+"px";
+
+    p2.style.left=p2Data.x+"px";
+    p2.style.bottom=(120+p2Data.y)+"px";
+
+    requestAnimationFrame(update);
+}
+
+updateHealth();
+update();
+
+</script>
+
+</body>
+</html>
