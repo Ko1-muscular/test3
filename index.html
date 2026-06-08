@@ -10,7 +10,7 @@ body{
     margin:0;
     background:#222;
     overflow:hidden;
-    font-family:Arial, sans-serif;
+    font-family:Arial,sans-serif;
 }
 
 #game{
@@ -35,6 +35,7 @@ body{
     height:120px;
     bottom:120px;
     border-radius:10px;
+    transition:transform 0.08s;
 }
 
 #p1{
@@ -88,6 +89,17 @@ body{
     transform:translateX(-50%);
     color:white;
     font-size:18px;
+    text-align:center;
+}
+
+#startMessage{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    color:white;
+    font-size:40px;
+    text-shadow:2px 2px 10px black;
 }
 </style>
 </head>
@@ -111,15 +123,97 @@ body{
 
     <div id="winner"></div>
 
+    <div id="startMessage">
+        CLICK ANYWHERE TO START MUSIC
+    </div>
+
     <div id="controls">
-        Player 1: WASD Move | F Attack &nbsp;&nbsp;&nbsp;
-        Player 2: Arrow Keys Move | L Attack
-        &nbsp;&nbsp;&nbsp; Press R to Restart
+        Player 1: WASD Move | F Attack<br>
+        Player 2: Arrow Keys Move | L Attack<br>
+        Press R to Restart
     </div>
 
 </div>
 
 <script>
+
+// ==================== AUDIO ====================
+
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioContextClass();
+
+let musicStarted = false;
+
+function beep(freq, duration, type="square", volume=0.05){
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = type;
+    osc.frequency.value = freq;
+
+    gain.gain.value = volume;
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function hitSound(){
+    beep(180,0.08,"square",0.08);
+    setTimeout(()=>beep(120,0.05,"square",0.06),40);
+}
+
+function jumpSound(){
+    beep(450,0.08,"triangle",0.05);
+}
+
+function winSound(){
+    beep(523,0.15,"triangle",0.08);
+    setTimeout(()=>beep(659,0.15,"triangle",0.08),150);
+    setTimeout(()=>beep(784,0.25,"triangle",0.08),300);
+}
+
+// Simple looping retro BGM
+function startMusic(){
+
+    if(musicStarted) return;
+
+    musicStarted=true;
+
+    document.getElementById("startMessage").style.display="none";
+
+    const melody = [
+        262,330,392,330,
+        294,349,440,349,
+        262,330,392,330,
+        220,262,330,392
+    ];
+
+    let i=0;
+
+    setInterval(()=>{
+        if(!musicStarted) return;
+
+        beep(melody[i],0.18,"triangle",0.03);
+
+        i++;
+        if(i>=melody.length){
+            i=0;
+        }
+
+    },250);
+}
+
+document.body.addEventListener("click",async()=>{
+    await audioCtx.resume();
+    startMusic();
+},{once:true});
+
+// ==================== GAME ====================
 
 const p1=document.getElementById("p1");
 const p2=document.getElementById("p2");
@@ -134,7 +228,6 @@ let keys={};
 let p1Data={
     x:200,
     y:0,
-    vx:0,
     vy:0,
     health:100
 };
@@ -142,7 +235,6 @@ let p1Data={
 let p2Data={
     x:900,
     y:0,
-    vx:0,
     vy:0,
     health:100
 };
@@ -154,6 +246,7 @@ const jumpPower=15;
 let gameOver=false;
 
 document.addEventListener("keydown",(e)=>{
+
     keys[e.key.toLowerCase()]=true;
 
     if(e.key.toLowerCase()==="f"){
@@ -179,9 +272,16 @@ function attackP1(){
 
     const distance=Math.abs(p1Data.x-p2Data.x);
 
+    p1.style.transform="scaleX(1.2)";
+    setTimeout(()=>p1.style.transform="scaleX(1)",80);
+
     if(distance<100){
+
+        hitSound();
+
         p2Data.health-=10;
         p2Data.x+=40;
+
         updateHealth();
     }
 }
@@ -192,9 +292,16 @@ function attackP2(){
 
     const distance=Math.abs(p1Data.x-p2Data.x);
 
+    p2.style.transform="scaleX(1.2)";
+    setTimeout(()=>p2.style.transform="scaleX(1)",80);
+
     if(distance<100){
+
+        hitSound();
+
         p1Data.health-=10;
         p1Data.x-=40;
+
         updateHealth();
     }
 }
@@ -205,15 +312,23 @@ function updateHealth(){
     health2Bar.style.width=Math.max(0,p2Data.health)+"%";
 
     if(p1Data.health<=0){
+
         gameOver=true;
+
         winner.innerHTML="PLAYER 2 WINS!";
         winner.style.display="block";
+
+        winSound();
     }
 
     if(p2Data.health<=0){
+
         gameOver=true;
+
         winner.innerHTML="PLAYER 1 WINS!";
         winner.style.display="block";
+
+        winSound();
     }
 }
 
@@ -222,7 +337,6 @@ function restartGame(){
     p1Data={
         x:200,
         y:0,
-        vx:0,
         vy:0,
         health:100
     };
@@ -230,14 +344,13 @@ function restartGame(){
     p2Data={
         x:900,
         y:0,
-        vx:0,
         vy:0,
         health:100
     };
 
-    gameOver=false;
-
     winner.style.display="none";
+
+    gameOver=false;
 
     updateHealth();
 }
@@ -246,23 +359,22 @@ function update(){
 
     if(!gameOver){
 
-        // P1
         if(keys["a"]) p1Data.x-=moveSpeed;
         if(keys["d"]) p1Data.x+=moveSpeed;
 
         if(keys["w"] && p1Data.y===0){
             p1Data.vy=jumpPower;
+            jumpSound();
         }
 
-        // P2
         if(keys["arrowleft"]) p2Data.x-=moveSpeed;
         if(keys["arrowright"]) p2Data.x+=moveSpeed;
 
         if(keys["arrowup"] && p2Data.y===0){
             p2Data.vy=jumpPower;
+            jumpSound();
         }
 
-        // Gravity
         p1Data.vy-=gravity;
         p1Data.y+=p1Data.vy;
 
@@ -299,4 +411,3 @@ update();
 
 </body>
 </html>
-
