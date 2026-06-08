@@ -3,21 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Street Fighting Game</title>
+<title>Street Fighter - CPU Edition</title>
 
 <style>
-body{
+*{
     margin:0;
-    background:#222;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
     overflow:hidden;
-    font-family:Arial,sans-serif;
+    font-family:Arial, sans-serif;
+    background:#111;
 }
 
 #game{
     position:relative;
     width:100vw;
     height:100vh;
-    background:linear-gradient(#87ceeb,#d9b38c);
+    background:linear-gradient(to bottom,#87ceeb 0%,#b8e6ff 60%,#c9a16b 60%,#c9a16b 100%);
     overflow:hidden;
 }
 
@@ -35,33 +40,31 @@ body{
     height:120px;
     bottom:120px;
     border-radius:10px;
-    transition:transform 0.08s;
+    transition:transform .08s;
 }
 
-#p1{
+#player{
     background:#3498db;
-    left:200px;
 }
 
-#p2{
+#cpu{
     background:#e74c3c;
-    left:900px;
 }
 
-.health-container{
+.healthBox{
     position:absolute;
     top:20px;
-    width:300px;
-    height:30px;
-    background:#555;
+    width:320px;
+    height:32px;
+    background:#444;
     border:3px solid white;
 }
 
-#health1Container{
+#playerHealthBox{
     left:20px;
 }
 
-#health2Container{
+#cpuHealthBox{
     right:20px;
 }
 
@@ -71,25 +74,48 @@ body{
     background:lime;
 }
 
+#scoreboard{
+    position:absolute;
+    top:70px;
+    width:100%;
+    text-align:center;
+    color:white;
+    font-size:30px;
+    font-weight:bold;
+}
+
+#announcement{
+    position:absolute;
+    top:40%;
+    width:100%;
+    text-align:center;
+    color:white;
+    font-size:90px;
+    font-weight:bold;
+    text-shadow:4px 4px 12px black;
+    display:none;
+    z-index:100;
+}
+
 #winner{
     position:absolute;
     top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:60px;
+    width:100%;
+    text-align:center;
     color:white;
-    text-shadow:3px 3px 10px black;
+    font-size:60px;
+    font-weight:bold;
+    text-shadow:4px 4px 12px black;
     display:none;
 }
 
 #controls{
     position:absolute;
     bottom:10px;
-    left:50%;
-    transform:translateX(-50%);
+    width:100%;
+    text-align:center;
     color:white;
     font-size:18px;
-    text-align:center;
 }
 
 #startMessage{
@@ -99,94 +125,101 @@ body{
     transform:translate(-50%,-50%);
     color:white;
     font-size:40px;
-    text-shadow:2px 2px 10px black;
+    text-shadow:3px 3px 10px black;
+    z-index:999;
 }
 </style>
 </head>
-
 <body>
 
 <div id="game">
 
-    <div id="health1Container" class="health-container">
-        <div id="health1" class="health"></div>
+    <div id="playerHealthBox" class="healthBox">
+        <div id="playerHealth" class="health"></div>
     </div>
 
-    <div id="health2Container" class="health-container">
-        <div id="health2" class="health"></div>
+    <div id="cpuHealthBox" class="healthBox">
+        <div id="cpuHealth" class="health"></div>
     </div>
 
-    <div id="p1" class="fighter"></div>
-    <div id="p2" class="fighter"></div>
+    <div id="scoreboard">
+        YOU: <span id="playerScore">0</span>
+        |
+        ROUND <span id="roundNum">1</span>
+        |
+        CPU: <span id="cpuScore">0</span>
+    </div>
+
+    <div id="player" class="fighter"></div>
+    <div id="cpu" class="fighter"></div>
+
+    <div id="announcement"></div>
+    <div id="winner"></div>
 
     <div id="ground"></div>
 
-    <div id="winner"></div>
-
     <div id="startMessage">
-        CLICK ANYWHERE TO START MUSIC
+        CLICK TO START MUSIC
     </div>
 
     <div id="controls">
-        Player 1: WASD Move | F Attack<br>
-        Player 2: Arrow Keys Move | L Attack<br>
-        Press R to Restart
+        Move: A D | Jump: W | Attack: F | Restart: R
     </div>
 
 </div>
 
 <script>
+// ======================
+// AUDIO
+// ======================
 
-// ==================== AUDIO ====================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioCtx();
 
-const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-const audioCtx = new AudioContextClass();
-
-let musicStarted = false;
-
-function beep(freq, duration, type="square", volume=0.05){
-
+function beep(freq,duration,type="square",vol=.05){
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
 
     osc.type = type;
     osc.frequency.value = freq;
 
-    gain.gain.value = volume;
+    gain.gain.value = vol;
 
     osc.connect(gain);
     gain.connect(audioCtx.destination);
 
     osc.start();
-
     osc.stop(audioCtx.currentTime + duration);
 }
 
 function hitSound(){
-    beep(180,0.08,"square",0.08);
-    setTimeout(()=>beep(120,0.05,"square",0.06),40);
+    beep(150,.08,"square",.08);
 }
 
 function jumpSound(){
-    beep(450,0.08,"triangle",0.05);
+    beep(450,.08,"triangle",.05);
 }
 
-function winSound(){
-    beep(523,0.15,"triangle",0.08);
-    setTimeout(()=>beep(659,0.15,"triangle",0.08),150);
-    setTimeout(()=>beep(784,0.25,"triangle",0.08),300);
+function roundSound(){
+    beep(523,.15,"triangle",.08);
+    setTimeout(()=>beep(659,.15,"triangle",.08),150);
 }
 
-// Simple looping retro BGM
+function koSound(){
+    beep(150,.2,"sawtooth",.08);
+    setTimeout(()=>beep(90,.4,"sawtooth",.08),150);
+}
+
+let musicStarted=false;
+
 function startMusic(){
 
     if(musicStarted) return;
 
     musicStarted=true;
-
     document.getElementById("startMessage").style.display="none";
 
-    const melody = [
+    const melody=[
         262,330,392,330,
         294,349,440,349,
         262,330,392,330,
@@ -196,15 +229,8 @@ function startMusic(){
     let i=0;
 
     setInterval(()=>{
-        if(!musicStarted) return;
-
         beep(melody[i],0.18,"triangle",0.03);
-
-        i++;
-        if(i>=melody.length){
-            i=0;
-        }
-
+        i=(i+1)%melody.length;
     },250);
 }
 
@@ -213,198 +239,308 @@ document.body.addEventListener("click",async()=>{
     startMusic();
 },{once:true});
 
-// ==================== GAME ====================
+// ======================
+// GAME VARIABLES
+// ======================
 
-const p1=document.getElementById("p1");
-const p2=document.getElementById("p2");
+const player=document.getElementById("player");
+const cpu=document.getElementById("cpu");
 
-const health1Bar=document.getElementById("health1");
-const health2Bar=document.getElementById("health2");
+const playerHealthBar=document.getElementById("playerHealth");
+const cpuHealthBar=document.getElementById("cpuHealth");
 
+const announcement=document.getElementById("announcement");
 const winner=document.getElementById("winner");
+
+const playerScoreEl=document.getElementById("playerScore");
+const cpuScoreEl=document.getElementById("cpuScore");
+const roundNumEl=document.getElementById("roundNum");
 
 let keys={};
 
-let p1Data={
-    x:200,
-    y:0,
-    vy:0,
-    health:100
-};
+let round=1;
+let playerScore=0;
+let cpuScore=0;
 
-let p2Data={
-    x:900,
-    y:0,
-    vy:0,
-    health:100
-};
+let roundActive=false;
+let matchOver=false;
 
-const gravity=0.8;
-const moveSpeed=6;
-const jumpPower=15;
+const gravity=.8;
 
-let gameOver=false;
+let p;
+let c;
 
-document.addEventListener("keydown",(e)=>{
+function resetFighters(){
 
-    keys[e.key.toLowerCase()]=true;
-
-    if(e.key.toLowerCase()==="f"){
-        attackP1();
-    }
-
-    if(e.key.toLowerCase()==="l"){
-        attackP2();
-    }
-
-    if(e.key.toLowerCase()==="r"){
-        restartGame();
-    }
-});
-
-document.addEventListener("keyup",(e)=>{
-    keys[e.key.toLowerCase()]=false;
-});
-
-function attackP1(){
-
-    if(gameOver) return;
-
-    const distance=Math.abs(p1Data.x-p2Data.x);
-
-    p1.style.transform="scaleX(1.2)";
-    setTimeout(()=>p1.style.transform="scaleX(1)",80);
-
-    if(distance<100){
-
-        hitSound();
-
-        p2Data.health-=10;
-        p2Data.x+=40;
-
-        updateHealth();
-    }
-}
-
-function attackP2(){
-
-    if(gameOver) return;
-
-    const distance=Math.abs(p1Data.x-p2Data.x);
-
-    p2.style.transform="scaleX(1.2)";
-    setTimeout(()=>p2.style.transform="scaleX(1)",80);
-
-    if(distance<100){
-
-        hitSound();
-
-        p1Data.health-=10;
-        p1Data.x-=40;
-
-        updateHealth();
-    }
-}
-
-function updateHealth(){
-
-    health1Bar.style.width=Math.max(0,p1Data.health)+"%";
-    health2Bar.style.width=Math.max(0,p2Data.health)+"%";
-
-    if(p1Data.health<=0){
-
-        gameOver=true;
-
-        winner.innerHTML="PLAYER 2 WINS!";
-        winner.style.display="block";
-
-        winSound();
-    }
-
-    if(p2Data.health<=0){
-
-        gameOver=true;
-
-        winner.innerHTML="PLAYER 1 WINS!";
-        winner.style.display="block";
-
-        winSound();
-    }
-}
-
-function restartGame(){
-
-    p1Data={
+    p={
         x:200,
         y:0,
         vy:0,
         health:100
     };
 
-    p2Data={
+    c={
         x:900,
         y:0,
         vy:0,
         health:100
     };
 
-    winner.style.display="none";
-
-    gameOver=false;
-
     updateHealth();
 }
 
-function update(){
+function updateHealth(){
+    playerHealthBar.style.width=Math.max(0,p.health)+"%";
+    cpuHealthBar.style.width=Math.max(0,c.health)+"%";
+}
 
-    if(!gameOver){
+function showText(text,time=1800){
 
-        if(keys["a"]) p1Data.x-=moveSpeed;
-        if(keys["d"]) p1Data.x+=moveSpeed;
+    announcement.innerHTML=text;
+    announcement.style.display="block";
 
-        if(keys["w"] && p1Data.y===0){
-            p1Data.vy=jumpPower;
-            jumpSound();
-        }
+    setTimeout(()=>{
+        announcement.style.display="none";
+    },time);
+}
 
-        if(keys["arrowleft"]) p2Data.x-=moveSpeed;
-        if(keys["arrowright"]) p2Data.x+=moveSpeed;
+function startRound(){
 
-        if(keys["arrowup"] && p2Data.y===0){
-            p2Data.vy=jumpPower;
-            jumpSound();
-        }
+    resetFighters();
 
-        p1Data.vy-=gravity;
-        p1Data.y+=p1Data.vy;
+    roundActive=false;
 
-        if(p1Data.y<0){
-            p1Data.y=0;
-            p1Data.vy=0;
-        }
+    showText("ROUND "+round);
 
-        p2Data.vy-=gravity;
-        p2Data.y+=p2Data.vy;
+    roundSound();
 
-        if(p2Data.y<0){
-            p2Data.y=0;
-            p2Data.vy=0;
-        }
+    setTimeout(()=>{
 
-        p1Data.x=Math.max(0,Math.min(window.innerWidth-70,p1Data.x));
-        p2Data.x=Math.max(0,Math.min(window.innerWidth-70,p2Data.x));
+        showText("FIGHT!",1000);
+
+        roundActive=true;
+
+    },1800);
+}
+
+function endRound(winnerPlayer){
+
+    if(matchOver) return;
+
+    roundActive=false;
+
+    announcement.innerHTML="KO!";
+    announcement.style.display="block";
+
+    koSound();
+
+    if(winnerPlayer==="player"){
+        playerScore++;
+    }else{
+        cpuScore++;
     }
 
-    p1.style.left=p1Data.x+"px";
-    p1.style.bottom=(120+p1Data.y)+"px";
+    playerScoreEl.textContent=playerScore;
+    cpuScoreEl.textContent=cpuScore;
 
-    p2.style.left=p2Data.x+"px";
-    p2.style.bottom=(120+p2Data.y)+"px";
+    if(playerScore>=2 || cpuScore>=2){
+
+        matchOver=true;
+
+        setTimeout(()=>{
+
+            announcement.style.display="none";
+
+            winner.innerHTML=
+                playerScore>cpuScore
+                ? "YOU WIN!"
+                : "CPU WINS!";
+
+            winner.style.display="block";
+
+        },2000);
+
+        return;
+    }
+
+    setTimeout(()=>{
+
+        round++;
+        roundNumEl.textContent=round;
+
+        announcement.style.display="none";
+
+        startRound();
+
+    },2500);
+}
+
+// ======================
+// ATTACKS
+// ======================
+
+function playerAttack(){
+
+    if(!roundActive) return;
+
+    player.style.transform="scaleX(1.2)";
+
+    setTimeout(()=>{
+        player.style.transform="scaleX(1)";
+    },80);
+
+    if(Math.abs(p.x-c.x)<100){
+
+        hitSound();
+
+        c.health-=10;
+        c.x+=35;
+
+        updateHealth();
+
+        if(c.health<=0){
+            endRound("player");
+        }
+    }
+}
+
+let cpuAttackCooldown=0;
+
+function cpuAttack(){
+
+    if(cpuAttackCooldown>0) return;
+
+    cpuAttackCooldown=45;
+
+    cpu.style.transform="scaleX(1.2)";
+
+    setTimeout(()=>{
+        cpu.style.transform="scaleX(1)";
+    },80);
+
+    if(Math.abs(p.x-c.x)<100){
+
+        hitSound();
+
+        p.health-=10;
+        p.x-=35;
+
+        updateHealth();
+
+        if(p.health<=0){
+            endRound("cpu");
+        }
+    }
+}
+
+// ======================
+// INPUT
+// ======================
+
+document.addEventListener("keydown",e=>{
+
+    keys[e.key.toLowerCase()]=true;
+
+    if(e.key.toLowerCase()==="f"){
+        playerAttack();
+    }
+
+    if(e.key.toLowerCase()==="r"){
+        location.reload();
+    }
+});
+
+document.addEventListener("keyup",e=>{
+    keys[e.key.toLowerCase()]=false;
+});
+
+// ======================
+// CPU AI
+// ======================
+
+function updateCPU(){
+
+    if(!roundActive) return;
+
+    const distance = p.x - c.x;
+
+    if(Math.abs(distance)>85){
+
+        if(distance>0){
+            c.x+=2.8;
+        }else{
+            c.x-=2.8;
+        }
+
+    }else{
+
+        if(Math.random()<0.04){
+            cpuAttack();
+        }
+    }
+
+    if(Math.random()<0.003 && c.y===0){
+        c.vy=15;
+    }
+
+    if(cpuAttackCooldown>0){
+        cpuAttackCooldown--;
+    }
+}
+
+// ======================
+// GAME LOOP
+// ======================
+
+function update(){
+
+    if(roundActive){
+
+        if(keys["a"]) p.x-=6;
+        if(keys["d"]) p.x+=6;
+
+        if(keys["w"] && p.y===0){
+            p.vy=15;
+            jumpSound();
+        }
+
+        updateCPU();
+
+        p.vy-=gravity;
+        p.y+=p.vy;
+
+        if(p.y<0){
+            p.y=0;
+            p.vy=0;
+        }
+
+        c.vy-=gravity;
+        c.y+=c.vy;
+
+        if(c.y<0){
+            c.y=0;
+            c.vy=0;
+        }
+
+        p.x=Math.max(0,Math.min(window.innerWidth-70,p.x));
+        c.x=Math.max(0,Math.min(window.innerWidth-70,c.x));
+    }
+
+    player.style.left=p.x+"px";
+    player.style.bottom=(120+p.y)+"px";
+
+    cpu.style.left=c.x+"px";
+    cpu.style.bottom=(120+c.y)+"px";
 
     requestAnimationFrame(update);
 }
 
-updateHealth();
+// ======================
+// START
+// ======================
+
+resetFighters();
+startRound();
 update();
 
 </script>
